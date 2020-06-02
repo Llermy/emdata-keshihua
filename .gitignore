@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+run
+
+# Too large files
+data/emd_21864_400.map
