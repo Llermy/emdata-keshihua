@@ -6,6 +6,7 @@ in vec3 normal;
 in vec3 FragPos;
 
 uniform vec3 viewPos;
+uniform float datacol;
 
 void main()
 {
@@ -19,5 +20,5 @@ void main()
     float ambient = 0.2;
     float lighting = min(diff + ambient, 1.0);
 
-    FragColor = vec4(albedo * lighting, 1.0);
+    FragColor = vec4(vec3(1, 1, 1) * datacol, 1.0);
 }

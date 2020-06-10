@@ -1,0 +1,11 @@
+#version 430
+
+layout(local_size_x = 1, local_size_y = 1) in;
+layout (std430, binding=0) buffer shader_data
+{
+    int x[];
+};
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    x[gl_GlobalInvocationID.x] = int(gl_GlobalInvocationID.x);
+}

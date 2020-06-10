@@ -13,6 +13,7 @@
 #include "ccp4reader.h"
 #include "shader.h"
 #include "camera.h"
+#include "ComputeShaderManager.hpp"
 
 // 设置
 const unsigned int SCR_WIDTH = 800;
@@ -44,6 +45,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
+void draw_data_points(VolumeData *data);
 void buffer_figure();
 void init();
 void setModelMatrix(Shader *shader, glm::vec3 position = glm::vec3(0.0f), float angle = 0.0f, bool isMoving = false);
@@ -52,14 +54,26 @@ void setProjectionMatrix(Shader *shader);
 
 int main() {
 
+    // 初始化opengl基本东西
+    init();
+
+    // test的计算着色器
+    std::cout << "计算着色器test：";
+    ComputeShaderManager csManager;
+    csManager.setup();
+    int *out;
+    csManager.dispatchTest(5, 1, 1, &out);
+    for(int i = 0; i < 5; i++) {
+        std::cout << out[i] << ",";
+    }
+    std::cout << "\n";
+
     // 读密度数据文件（相关代码在ccp4reader.h）
     CCP4Reader reader;
     VolumeData *densityData = reader.read("data/emd_21965_128.map");
-    densityData->printSize();
-    std::cout << densityData->get(60, 60, 60) << "\n";
 
-    // 初始化opengl基本东西
-    init();
+    VolumeData dummyData;
+    dummyData.fillDummyData();
 
     // 着色器定义
     ourShader = new Shader("shaders/vertex/shader1.vs", "shaders/fragment/shader1.fs");
@@ -91,12 +105,14 @@ int main() {
         glBindVertexArray(VAO);
         
         // 计算模型矩阵
-        glm::mat4 model = glm::mat4(1.0f);
+        /*glm::mat4 model = glm::mat4(1.0f);
         glm::vec3 cubePosition(0, 0, 0);
         model = glm::translate(model, cubePosition);
         ourShader->setMat4("model", model);
 
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDrawArrays(GL_TRIANGLES, 0, 36);*/
+
+        draw_data_points(densityData);
 
         glBindVertexArray(0);
 
@@ -119,7 +135,7 @@ void init()
 {
     // GLFW初始化
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifdef __APPLE__
@@ -162,6 +178,35 @@ void init()
 
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+}
+
+float dataToColor(float min, float max, float data)
+{
+    return (data - min) / (max - min);
+}
+
+void draw_data_points(VolumeData *data)
+{
+    float step = 5.0f;
+    float size = 0.01f;
+    
+    glm::mat4 modelbase = glm::mat4(1.0f);
+    modelbase = glm::scale(modelbase, glm::vec3(size, size, size));
+
+    for(int z = 0; z < data->size[2]; z++) {
+        for(int y = 0; y < data->size[1]; y++) {
+            for(int x = 0; x < data->size[0]; x++) {
+                float color = dataToColor(data->minValue, data->maxValue, data->get(x, y, z));
+                if(color > 0.25) {
+                    ourShader->setFloat("datacol", color);
+                    ourShader->setMat4("model", modelbase);
+                    ourShader->setVec3("position", glm::vec3(x, y, z) - glm::vec3(data->size[0], data->size[1], data->size[2]));
+
+                    glDrawArrays(GL_TRIANGLES, 0, 36);
+                }
+            }
+        }
+    }
 }
 
 void buffer_figure()

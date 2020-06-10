@@ -2,6 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <stdio.h>
+#include <cstring>
 
 typedef unsigned char BYTE;
 
@@ -9,6 +10,8 @@ typedef unsigned char BYTE;
 class VolumeData
 {
 public:
+    int maxValue = 16.3;
+    int minValue = -5.9;
     uint size[3];
     float *data;
 
@@ -19,7 +22,7 @@ public:
     }
 
     ~VolumeData() {
-        if(size[0] == 0) {
+        if(size[0] != 0) {
             free(data);
         }
     }
@@ -44,6 +47,22 @@ public:
 
     void printSize() {
         std::cout << "数据大小为（" << size[0] << "，" << size[1] << "，" << size[2] << "）\n";
+    }
+
+    void fillDummyData() {
+        if(size[0] != 0) {
+            this->clear();
+        }
+        size[0] = 2;
+        size[1] = 2;
+        size[2] = 2;
+        uint length = size[0]*size[1]*size[2];
+        this->data = new float[length];
+        float dt[length] = {1,  1.5, 0.5, 1, 2, 1, 0, 0.5};
+        memcpy(this->data, dt, length*sizeof(float));
+
+        this->minValue = 0;
+        this->maxValue = 2;
     }
 };
 
