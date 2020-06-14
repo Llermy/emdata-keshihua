@@ -10,8 +10,8 @@ typedef unsigned char BYTE;
 class VolumeData
 {
 public:
-    int maxValue = 16.3;
-    int minValue = -5.9;
+    float maxValue;
+    float minValue;
     uint size[3];
     float *data;
 
@@ -97,6 +97,11 @@ public:
         // 解析ccp4数据的大小
         uint *size = (uint*) malloc(sizeof(uint)*3);
         fread((void*)(size), sizeof(size[0]), 3, pFile);
+
+        // 解析数据的最高最低值
+        fseek(pFile, 19*4, SEEK_SET);
+        fread((void*)(&voldata->minValue), sizeof(voldata->minValue), 1, pFile);
+        fread((void*)(&voldata->maxValue), sizeof(voldata->maxValue), 1, pFile);
 
         // 读ccp4数据
         uint numfloats = (fileSize - 1024) / 4; // 头部为1024byte，每浮点数等于4byte。TODO：有可能头部与数据中间有symmetry records（现在假设没有）

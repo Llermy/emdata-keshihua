@@ -47,15 +47,15 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 void draw_data_points(VolumeData *data);
 void buffer_figure();
-void init();
+void initOpenGL();
 void setModelMatrix(Shader *shader, glm::vec3 position = glm::vec3(0.0f), float angle = 0.0f, bool isMoving = false);
 void setViewMatrix(Shader *shader);
 void setProjectionMatrix(Shader *shader);
 
-int main() {
+int main(int argc, char *argv[]) {
 
     // 初始化opengl基本东西
-    init();
+    initOpenGL();
 
     // test的计算着色器
     std::cout << "计算着色器test：";
@@ -70,10 +70,12 @@ int main() {
 
     // 读密度数据文件（相关代码在ccp4reader.h）
     CCP4Reader reader;
-    VolumeData *densityData = reader.read("data/emd_21965_128.map");
-
-    VolumeData dummyData;
-    dummyData.fillDummyData();
+    VolumeData *densityData;
+    if(argc > 1) {
+        densityData = reader.read(argv[1]);
+    } else {
+        densityData = reader.read("data/emd_10410_96.map");
+    }
 
     // 着色器定义
     ourShader = new Shader("shaders/vertex/shader1.vs", "shaders/fragment/shader1.fs");
@@ -131,7 +133,7 @@ int main() {
     return 0;
 }
 
-void init()
+void initOpenGL()
 {
     // GLFW初始化
     glfwInit();
@@ -166,7 +168,7 @@ void init()
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
@@ -197,7 +199,7 @@ void draw_data_points(VolumeData *data)
         for(int y = 0; y < data->size[1]; y++) {
             for(int x = 0; x < data->size[0]; x++) {
                 float color = dataToColor(data->minValue, data->maxValue, data->get(x, y, z));
-                if(color > 0.25) {
+                if(color > 0.2) { // 只绘制出一部分的数据
                     ourShader->setFloat("datacol", color);
                     ourShader->setMat4("model", modelbase);
                     ourShader->setVec3("position", glm::vec3(x, y, z) - glm::vec3(data->size[0], data->size[1], data->size[2]));
