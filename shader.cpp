@@ -1,6 +1,12 @@
 #include "shader.h"
 
+Shader::Shader(){};
 Shader::Shader(const GLchar* vertexPath, const GLchar* fragmentPath)
+{
+    this->setup(vertexPath, fragmentPath);
+}
+
+void Shader::setup(const GLchar* vertexPath, const GLchar* fragmentPath)
 {
     // 1. 从文件路径中获取顶点/片段着色器
     std::string vertexCode;

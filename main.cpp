@@ -14,26 +14,31 @@
 #include "shader.h"
 #include "camera.h"
 #include "ComputeShaderManager.hpp"
+#include "openglGUI.h"
 
 // 设置
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+unsigned int scrWidth = 800;
+unsigned int scrHeight = 600;
 
 // 鼠标变量
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
+float lastX = scrWidth / 2.0f;
+float lastY = scrHeight / 2.0f;
 bool firstMouse = true;
+bool pressingMouse = false;
 
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
 bool isPaused = false;
 
+float valThreshold;
+
 // 共同变量
 GLFWwindow* window;
 Shader* ourShader;
 Shader* lampShader;
+Slider *slider;
 
 // 缓冲
 unsigned int VAO;
@@ -43,6 +48,7 @@ unsigned int EBO;
 // 函数
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 void draw_data_points(VolumeData *data);
@@ -76,6 +82,8 @@ int main(int argc, char *argv[]) {
     } else {
         densityData = reader.read("data/emd_10410_96.map");
     }
+    slider = new Slider(densityData->minValue, densityData->maxValue);
+    valThreshold = slider->read();
 
     // 着色器定义
     ourShader = new Shader("shaders/vertex/shader1.vs", "shaders/fragment/shader1.fs");
@@ -116,6 +124,8 @@ int main(int argc, char *argv[]) {
 
         draw_data_points(densityData);
 
+        slider->render();
+
         glBindVertexArray(0);
 
         // 检查并调用事情，交换缓冲
@@ -127,6 +137,8 @@ int main(int argc, char *argv[]) {
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+
+    delete slider;
     delete densityData;
 
     glfwTerminate();
@@ -145,7 +157,7 @@ void initOpenGL()
 #endif
 
     // 创建窗口对象
-    window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    window = glfwCreateWindow(scrWidth, scrHeight, "LearnOpenGL", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -171,6 +183,7 @@ void initOpenGL()
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -180,6 +193,8 @@ void initOpenGL()
 
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+    Slider::setup();
 }
 
 float dataToColor(float min, float max, float data)
@@ -198,8 +213,9 @@ void draw_data_points(VolumeData *data)
     for(int z = 0; z < data->size[2]; z++) {
         for(int y = 0; y < data->size[1]; y++) {
             for(int x = 0; x < data->size[0]; x++) {
-                float color = dataToColor(data->minValue, data->maxValue, data->get(x, y, z));
-                if(color > 0.2) { // 只绘制出一部分的数据
+                float curData = data->get(x, y, z);
+                float color = dataToColor(data->minValue, data->maxValue, curData);
+                if(curData > valThreshold) { // 只绘制出一部分的数据
                     ourShader->setFloat("datacol", color);
                     ourShader->setMat4("model", modelbase);
                     ourShader->setVec3("position", glm::vec3(x, y, z) - glm::vec3(data->size[0], data->size[1], data->size[2]));
@@ -258,11 +274,6 @@ void buffer_figure()
         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
     };
 
-    /*unsigned int indices[] = {
-        0, 1, 2, // 第一个三角形
-        0, 2, 3  // 第二个三角形
-    };*/
-
     // 顶点缓冲对象
     glBindVertexArray(VAO);
     glGenBuffers(1, &VBO);
@@ -293,6 +304,10 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(RIGHT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
         isPaused = !isPaused;
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        valThreshold = slider->move(true);
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        valThreshold = slider->move(false);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
@@ -309,7 +324,24 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     lastX = xpos;
     lastY = ypos;
 
-    camera.ProcessMouseMovement(xoffset, yoffset);
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+        camera.ProcessMouseMovement(xoffset, yoffset);
+    else if(pressingMouse)
+        slider->click(lastX, lastY, scrWidth, scrHeight);
+        valThreshold = slider->read();
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    if(button == GLFW_MOUSE_BUTTON_LEFT) {
+        if(action == GLFW_PRESS) {
+            pressingMouse = true;
+            slider->click(lastX, lastY, scrWidth, scrHeight);
+            valThreshold = slider->read();
+        } else if (action == GLFW_RELEASE) {
+            pressingMouse = false;
+        }
+    }
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
@@ -320,6 +352,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
+    scrWidth = width;
+    scrHeight = height;
 }
 
 void setModelMatrix(Shader *shader, glm::vec3 position, float angle, bool isMoving)
@@ -344,6 +378,6 @@ void setViewMatrix(Shader *shader)
 void setProjectionMatrix(Shader *shader)
 {
     glm::mat4 projection = glm::mat4(1.0f);
-    projection = glm::perspective(camera.Zoom, (float) SCR_WIDTH / SCR_HEIGHT , 0.1f, 100.0f);
+    projection = glm::perspective(camera.Zoom, (float) scrWidth / scrHeight , 0.1f, 100.0f);
     shader->setMat4("projection", projection);
 }
