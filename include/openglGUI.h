@@ -13,7 +13,7 @@
 #define LEFT_POS 0.8f
 #define RIGHT_POS 0.9f
 #define VERTEX_NUM 18
-#define MOVE_SPEED 0.002f
+#define MOVE_SPEED 0.2f
 
 /**
  * Slider openGL简单的滑动按钮
@@ -152,10 +152,10 @@ public:
         return this->curVal;
     }
 
-    float move(bool moveUp)
+    float move(bool moveUp, float deltaTime)
     {
         float sign = moveUp ? 1.0f : -1.0f;
-        this->curVal += sign*MOVE_SPEED*(this->max-this->min);
+        this->curVal += sign*MOVE_SPEED*deltaTime*(this->max-this->min);
         this->updateVertices(this->curVal);
         return this->curVal;
     }

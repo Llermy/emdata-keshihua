@@ -15,10 +15,10 @@ void main()
     vec3 norm = normalize(normal);
     vec3 viewDir = normalize(viewPos - FragPos);
 
-    vec3 albedo = vec3(0.8, 0, 0.8);
-    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 albedo = vec3(0.8, 0.8, 0.2);
+    float diff = abs(dot(norm, lightDir));
     float ambient = 0.2;
     float lighting = min(diff + ambient, 1.0);
 
-    FragColor = vec4(vec3(1, 1, 1) * datacol, 1.0);
+    FragColor = vec4(albedo*lighting, 1.0);
 }

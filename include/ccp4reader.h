@@ -1,3 +1,6 @@
+#ifndef CCP4_READER_HPP
+#define CCP4_READER_HPP
+
 #include <fstream>
 #include <vector>
 #include <iostream>
@@ -27,6 +30,14 @@ public:
         }
     }
 
+    void allocate(uint sizex, uint sizey, uint sizez)
+    {
+        this->data = new float[sizex*sizey*sizez];
+        size[0] = sizex;
+        size[1] = sizey;
+        size[2] = sizez;
+    }
+
     void newData(uint sizex, uint sizey, uint sizez, float *data) {
         this->data = data;
         size[0] = sizex;
@@ -42,7 +53,11 @@ public:
     }
 
     float get(uint x, uint y, uint z) {
-        return this->data[x + y*size[1] + z*size[1]*size[2]];
+        return this->data[x + y*size[0] + z*size[0]*size[1]];
+    }
+
+    void set(uint x, uint y, uint z, float data) {
+        this->data[x + y*size[0] + z*size[0]*size[1]] = data;
     }
 
     void printSize() {
@@ -117,3 +132,5 @@ public:
         return voldata;
     }
 };
+
+#endif

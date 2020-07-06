@@ -15,6 +15,7 @@
 #include "camera.h"
 #include "ComputeShaderManager.hpp"
 #include "openglGUI.h"
+#include "marchingCubes.hpp"
 
 // 设置
 unsigned int scrWidth = 800;
@@ -45,18 +46,30 @@ unsigned int VAO;
 unsigned int VBO;
 unsigned int EBO;
 
+// Marching cubes的顶点信息
+float *mcVertices;
+int mcVertNum;
+unsigned int mcVAO;
+unsigned int mcVBO;
+MarchingCuber mcuber;
+
 // 函数
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
+
+void initOpenGL();
+void bufferMCVertices(float *vertices, int vertNum);
+void updateMCVertices(float *vertices, int vertNum);
+void drawBuffer(unsigned int va, int numVerts);
 void draw_data_points(VolumeData *data);
 void buffer_figure();
-void initOpenGL();
 void setModelMatrix(Shader *shader, glm::vec3 position = glm::vec3(0.0f), float angle = 0.0f, bool isMoving = false);
 void setViewMatrix(Shader *shader);
 void setProjectionMatrix(Shader *shader);
+void updateValThreshold(float newThreshold);
 
 int main(int argc, char *argv[]) {
 
@@ -82,14 +95,19 @@ int main(int argc, char *argv[]) {
     } else {
         densityData = reader.read("data/emd_10410_96.map");
     }
+
     slider = new Slider(densityData->minValue, densityData->maxValue);
     valThreshold = slider->read();
+
+    mcuber.setup(densityData, valThreshold);
+    mcVertNum = mcuber.polygonize(&mcVertices);
 
     // 着色器定义
     ourShader = new Shader("shaders/vertex/shader1.vs", "shaders/fragment/shader1.fs");
 
     // 缓冲一个立方体的三角形（test而已）
-    buffer_figure();
+    //buffer_figure();
+    bufferMCVertices(mcVertices, mcVertNum);
 
     // 渲染循环
     while(!glfwWindowShouldClose(window))
@@ -113,16 +131,10 @@ int main(int argc, char *argv[]) {
         setProjectionMatrix(ourShader);
 
         glBindVertexArray(VAO);
-        
-        // 计算模型矩阵
-        /*glm::mat4 model = glm::mat4(1.0f);
-        glm::vec3 cubePosition(0, 0, 0);
-        model = glm::translate(model, cubePosition);
-        ourShader->setMat4("model", model);
 
-        glDrawArrays(GL_TRIANGLES, 0, 36);*/
+        //draw_data_points(densityData);
 
-        draw_data_points(densityData);
+        drawBuffer(mcVAO, mcVertNum);
 
         slider->render();
 
@@ -139,6 +151,7 @@ int main(int argc, char *argv[]) {
     glDeleteBuffers(1, &VBO);
 
     delete slider;
+    delete[] mcVertices;
     delete densityData;
 
     glfwTerminate();
@@ -227,6 +240,39 @@ void draw_data_points(VolumeData *data)
     }
 }
 
+void drawBuffer(unsigned int va, int numVerts)
+{
+    glBindVertexArray(va);
+    ourShader->use();
+    ourShader->setMat4("model", glm::scale(glm::mat4(1.0f), glm::vec3(0.2f)));
+    ourShader->setFloat("datacol", 0.9f);
+    ourShader->setVec3("position", glm::vec3(0, 0, 0));
+    glDrawArrays(GL_TRIANGLES, 0, numVerts);
+}
+
+void updateMCVertices(float *vertices, int vertNum)
+{
+    glBindVertexArray(mcVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, mcVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0])*vertNum*6, vertices, GL_STATIC_DRAW);
+}
+
+void bufferMCVertices(float *vertices, int vertNum)
+{
+    glGenVertexArrays(1, &mcVAO);
+
+    // 顶点缓冲对象
+    glBindVertexArray(mcVAO);
+    glGenBuffers(1, &mcVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, mcVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices[0])*vertNum*6, vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3*sizeof(float)));
+    glEnableVertexAttribArray(1);
+}
+
 void buffer_figure()
 {
     float vertices[] = {
@@ -305,15 +351,14 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
         isPaused = !isPaused;
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        valThreshold = slider->move(true);
+        updateValThreshold(slider->move(true, deltaTime));
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        valThreshold = slider->move(false);
+        updateValThreshold(slider->move(false, deltaTime));
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
-    if(firstMouse)
-    {
+    if(firstMouse) {
         lastX = xpos;
         lastY = ypos;
         firstMouse = false;
@@ -326,9 +371,11 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         camera.ProcessMouseMovement(xoffset, yoffset);
-    else if(pressingMouse)
-        slider->click(lastX, lastY, scrWidth, scrHeight);
-        valThreshold = slider->read();
+    else if(pressingMouse) {
+        if(slider->click(lastX, lastY, scrWidth, scrHeight)) {
+            updateValThreshold(slider->read());
+        }
+    }
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -336,8 +383,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     if(button == GLFW_MOUSE_BUTTON_LEFT) {
         if(action == GLFW_PRESS) {
             pressingMouse = true;
-            slider->click(lastX, lastY, scrWidth, scrHeight);
-            valThreshold = slider->read();
+            if(slider->click(lastX, lastY, scrWidth, scrHeight)) {
+                updateValThreshold(slider->read());
+            }
         } else if (action == GLFW_RELEASE) {
             pressingMouse = false;
         }
@@ -380,4 +428,15 @@ void setProjectionMatrix(Shader *shader)
     glm::mat4 projection = glm::mat4(1.0f);
     projection = glm::perspective(camera.Zoom, (float) scrWidth / scrHeight , 0.1f, 100.0f);
     shader->setMat4("projection", projection);
+}
+
+
+void updateValThreshold(float newThreshold)
+{
+    valThreshold = newThreshold;
+    mcuber.dataThreshold = valThreshold;
+    delete[] mcVertices;
+    mcVertNum = mcuber.polygonize(&mcVertices);
+
+    updateMCVertices(mcVertices, mcVertNum);
 }
