@@ -17,6 +17,7 @@ public:
     float maxValue;
     float minValue;
     uint size[3];
+    float cellDim;
     float *data;
 
     VolumeData() {
@@ -115,6 +116,10 @@ public:
         fread((void*)(size), sizeof(size[0]), 3, pFile);
 
         // 解析数据的最高最低值
+        fseek(pFile, 10*4, SEEK_SET);
+        fread((void*)(&voldata->cellDim), sizeof(voldata->cellDim), 1, pFile);
+
+        // 解析数据的格的大小（cell dimensions）
         fseek(pFile, 19*4, SEEK_SET);
         fread((void*)(&voldata->minValue), sizeof(voldata->minValue), 1, pFile);
         fread((void*)(&voldata->maxValue), sizeof(voldata->maxValue), 1, pFile);

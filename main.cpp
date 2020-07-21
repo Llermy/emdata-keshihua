@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <sstream>
+#include <iomanip>
 
 #include "ccp4reader.h"
 #include "shader.h"
@@ -22,7 +24,7 @@ unsigned int scrWidth = 800;
 unsigned int scrHeight = 600;
 
 // 鼠标变量
-Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 20.0f));
 float lastX = scrWidth / 2.0f;
 float lastY = scrHeight / 2.0f;
 bool firstMouse = true;
@@ -46,12 +48,21 @@ unsigned int VAO;
 unsigned int VBO;
 unsigned int EBO;
 
+VolumeData *densityData;
+
 // Marching cubes的顶点信息
 float *mcVertices;
 int mcVertNum;
 unsigned int mcVAO;
 unsigned int mcVBO;
 MarchingCuber mcuber;
+glm::mat4 mcModel = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f));
+
+// Scale line to know data distances
+Shader *scaleShader;
+unsigned int scaleVAO;
+unsigned int scaleVBO;
+TextRenderer tRenderer;
 
 // 函数
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -64,6 +75,8 @@ void initOpenGL();
 void bufferMCVertices(float *vertices, int vertNum);
 void updateMCVertices(float *vertices, int vertNum);
 void drawBuffer(unsigned int va, int numVerts);
+void bufferScaleVertices();
+void drawScale();
 void draw_data_points(VolumeData *data);
 void buffer_figure();
 void setModelMatrix(Shader *shader, glm::vec3 position = glm::vec3(0.0f), float angle = 0.0f, bool isMoving = false);
@@ -75,31 +88,6 @@ int main(int argc, char *argv[]) {
 
     // 初始化opengl基本东西
     initOpenGL();
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     // test的计算着色器
     std::cout << "计算着色器test：";
@@ -114,7 +102,6 @@ int main(int argc, char *argv[]) {
 
     // 读密度数据文件（相关代码在ccp4reader.h）
     CCP4Reader reader;
-    VolumeData *densityData;
     if(argc > 1) {
         densityData = reader.read(argv[1]);
     } else {
@@ -129,10 +116,12 @@ int main(int argc, char *argv[]) {
 
     // 着色器定义
     ourShader = new Shader("shaders/vertex/shader1.vs", "shaders/fragment/shader1.fs");
+    scaleShader = new Shader("shaders/vertex/shader2.vs", "shaders/fragment/shaderGui.fs");
 
     // 缓冲一个立方体的三角形（test而已）
     //buffer_figure();
     bufferMCVertices(mcVertices, mcVertNum);
+    bufferScaleVertices();
 
     // 渲染循环
     while(!glfwWindowShouldClose(window))
@@ -161,7 +150,9 @@ int main(int argc, char *argv[]) {
 
         drawBuffer(mcVAO, mcVertNum);
 
-        slider->render();
+        slider->render(scrWidth, scrHeight);
+
+        drawScale();
 
         glBindVertexArray(0);
 
@@ -171,6 +162,7 @@ int main(int argc, char *argv[]) {
     }
     
     delete ourShader;
+    delete scaleShader;
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
@@ -271,10 +263,46 @@ void drawBuffer(unsigned int va, int numVerts)
 {
     glBindVertexArray(va);
     ourShader->use();
-    ourShader->setMat4("model", glm::scale(glm::mat4(1.0f), glm::vec3(0.2f)));
+    ourShader->setMat4("model", mcModel);
     ourShader->setFloat("datacol", 0.9f);
     ourShader->setVec3("position", glm::vec3(0, 0, 0));
     glDrawArrays(GL_TRIANGLES, 0, numVerts);
+}
+
+void bufferScaleVertices()
+{
+    float scaleVerts[] = {
+        0, 0, 0,
+        MC_SIZE / 2.0f, 0, 0
+    };
+
+    glGenVertexArrays(1, &scaleVAO);
+
+    // 顶点缓冲对象
+    glBindVertexArray(scaleVAO);
+    glGenBuffers(1, &scaleVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, scaleVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(scaleVerts[0])*6, scaleVerts, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+}
+
+void drawScale()
+{
+    glBindVertexArray(scaleVAO);
+    scaleShader->use();
+    scaleShader->setVec3("color", glm::vec3(1.0f, 0.0f, 0.0f));
+    setViewMatrix(scaleShader);
+    setProjectionMatrix(scaleShader);
+    scaleShader->setMat4("model", mcModel);
+    glDrawArrays(GL_LINES, 0, 2);
+
+    float scaleLineLength = densityData->cellDim * densityData->size[0] / 2;
+    std::stringstream stream;
+    stream << std::fixed << std::setprecision(2) << scaleLineLength;
+    std::string dimStr = stream.str();
+    tRenderer.renderText(std::string("Scale: ").append(dimStr.append(" Angstroms")), 25.0f, scrHeight - 50.0f, 0.3f, glm::vec3(1.0f, 0.0f, 0.0f));
 }
 
 void updateMCVertices(float *vertices, int vertNum)
@@ -429,6 +457,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
     scrWidth = width;
     scrHeight = height;
+    TextRenderer::updateScreen(scrWidth, scrHeight);
 }
 
 void setModelMatrix(Shader *shader, glm::vec3 position, float angle, bool isMoving)

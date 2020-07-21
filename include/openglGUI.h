@@ -5,9 +5,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <map>
 
 #include <stdio.h>
+#include <map>
+#include <iomanip>
+#include <sstream>
 
 #include "shader.h"
 
@@ -33,6 +35,7 @@ class TextRenderer
 
 public:
     static void init(int scrWidth, int scrHeight);
+    static void updateScreen(int scrWidth, int scrHeight);
     void renderText(std::string text, float x, float y, float scale, glm::vec3 color);
 };
 
@@ -149,7 +152,7 @@ public:
         return false;
     }
 
-    void render()
+    void render(int screenx, int screeny)
     {
         glBindVertexArray(this->VAO);
 
@@ -163,7 +166,10 @@ public:
         Slider::shader.setVec3("color", this->colorSlide);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(GLuint)) );
 
-        textRenderer.renderText(std::to_string(this->curVal), 25.0f, 25.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+        std::stringstream stream;
+        stream << std::fixed << std::setprecision(3) << this->curVal;
+        std::string valStr = stream.str();
+        textRenderer.renderText(valStr, screenx - 150.0f, 25.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
 
     float read()

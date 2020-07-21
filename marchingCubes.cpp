@@ -1,7 +1,5 @@
 #include "marchingCubes.hpp"
 
-#define MC_SIZE 100.0f
-
 const PosDuplet cornerIndexFromEdge[12] = {
     {{0, 1, 0}, {1, 1, 0}},
     {{1, 1, 0}, {1, 1, 1}},

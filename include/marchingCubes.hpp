@@ -1,6 +1,8 @@
 #ifndef MARCHING_CUBES_HPP
 #define MARCHING_CUBES_HPP
 
+#define MC_SIZE 100.0f
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>

@@ -97,6 +97,11 @@ void TextRenderer::init(int scrWidth, int scrHeight)
     glBindVertexArray(0);
 
     TextRenderer::textShader = new Shader("shaders/vertex/text.vs", "shaders/fragment/text.fs");
+    TextRenderer::updateScreen(scrWidth, scrHeight);
+}
+
+void TextRenderer::updateScreen(int scrWidth, int scrHeight)
+{
     glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(scrWidth), 0.0f, static_cast<float>(scrHeight));
     TextRenderer::textShader->use();
     glUniformMatrix4fv(glGetUniformLocation(TextRenderer::textShader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
