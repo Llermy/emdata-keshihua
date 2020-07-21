@@ -331,7 +331,6 @@ int MarchingCuber::polygonize(float **vertices)
             for(int x = 0; x < sizex; x++)
             {
                 int arrayInd = x + y*sizex + z*sizex*sizey;
-                triTableIndices[arrayInd];
                 
                 for(int i = 0; i < 16; i += 3) {
                     if(triTable[triTableIndices[arrayInd]][i] < 0) {

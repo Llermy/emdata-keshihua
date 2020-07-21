@@ -8,6 +8,7 @@
 #include <cstring>
 
 typedef unsigned char BYTE;
+typedef unsigned int uint;
 
 // 3D的数据的类
 class VolumeData
@@ -73,7 +74,7 @@ public:
         size[2] = 2;
         uint length = size[0]*size[1]*size[2];
         this->data = new float[length];
-        float dt[length] = {1,  1.5, 0.5, 1, 2, 1, 0, 0.5};
+        float dt[8] = {1,  1.5, 0.5, 1, 2, 1, 0, 0.5};
         memcpy(this->data, dt, length*sizeof(float));
 
         this->minValue = 0;

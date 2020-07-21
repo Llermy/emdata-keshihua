@@ -217,7 +217,6 @@ float dataToColor(float min, float max, float data)
 
 void draw_data_points(VolumeData *data)
 {
-    float step = 5.0f;
     float size = 0.01f;
     
     glm::mat4 modelbase = glm::mat4(1.0f);
