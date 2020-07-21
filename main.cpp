@@ -22,7 +22,7 @@ unsigned int scrWidth = 800;
 unsigned int scrHeight = 600;
 
 // 鼠标变量
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
 float lastX = scrWidth / 2.0f;
 float lastY = scrHeight / 2.0f;
 bool firstMouse = true;
@@ -75,6 +75,31 @@ int main(int argc, char *argv[]) {
 
     // 初始化opengl基本东西
     initOpenGL();
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // test的计算着色器
     std::cout << "计算着色器test：";
@@ -199,6 +224,8 @@ void initOpenGL()
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // 缓冲
     glGenVertexArrays(1, &VAO);
@@ -208,6 +235,7 @@ void initOpenGL()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
     Slider::setup();
+    TextRenderer::init(scrWidth, scrHeight);
 }
 
 float dataToColor(float min, float max, float data)

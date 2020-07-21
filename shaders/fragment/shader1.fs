@@ -15,7 +15,7 @@ void main()
     vec3 norm = normalize(normal);
     vec3 viewDir = normalize(viewPos - FragPos);
 
-    vec3 albedo = vec3(0.8, 0.8, 0.2);
+    vec3 albedo = vec3(0.8, 0.7, 0.4);
     float diff = abs(dot(norm, lightDir));
     float ambient = 0.2;
     float lighting = min(diff + ambient, 1.0);

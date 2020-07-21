@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <map>
 
 #include <stdio.h>
 
@@ -15,6 +16,26 @@
 #define VERTEX_NUM 18
 #define MOVE_SPEED 0.2f
 
+/// Holds all state information relevant to a character as loaded using FreeType
+struct Character {
+    unsigned int TextureID; // ID handle of the glyph texture
+    glm::ivec2   Size;      // Size of glyph
+    glm::ivec2   Bearing;   // Offset from baseline to left/top of glyph
+    unsigned int Advance;   // Horizontal offset to advance to next glyph
+};
+
+class TextRenderer
+{
+    static std::map<GLchar, Character> characters;
+    static unsigned int textVAO;
+    static unsigned int textVBO;
+    static Shader* textShader;
+
+public:
+    static void init(int scrWidth, int scrHeight);
+    void renderText(std::string text, float x, float y, float scale, glm::vec3 color);
+};
+
 /**
  * Slider openGL简单的滑动按钮
  */
@@ -22,6 +43,7 @@ class Slider
 {
     static Shader shader;
     static glm::mat4 orthProjection;
+    TextRenderer textRenderer;
 
     unsigned int VAO;
     unsigned int VBO;
@@ -72,11 +94,7 @@ public:
         init();
     }
 
-    static void setup()
-    {
-        Slider::shader.setup("shaders/vertex/shaderGui.vs", "shaders/fragment/shaderGui.fs");
-        Slider::orthProjection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-    }
+    static void setup();
 
     void init()
     {
@@ -134,10 +152,9 @@ public:
     void render()
     {
         glBindVertexArray(this->VAO);
-        //glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
 
         Slider::shader.use();
-        Slider::shader.setMat4("projection", orthProjection);
+        Slider::shader.setMat4("projection", Slider::orthProjection);
 
         // 滑动按钮背景
         Slider::shader.setVec3("color", this->colorSlideBack);
@@ -145,6 +162,8 @@ public:
         // 滑动按钮
         Slider::shader.setVec3("color", this->colorSlide);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(GLuint)) );
+
+        textRenderer.renderText(std::to_string(this->curVal), 25.0f, 25.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
     }
 
     float read()
@@ -156,16 +175,13 @@ public:
     {
         float sign = moveUp ? 1.0f : -1.0f;
         this->curVal += sign*MOVE_SPEED*deltaTime*(this->max-this->min);
+        if(this->curVal > this->max)
+            this->curVal = this->max;
+        if(this->curVal < this->min)
+            this->curVal = this->min;
         this->updateVertices(this->curVal);
         return this->curVal;
     }
 };
-
-Shader Slider::shader;
-glm::mat4 Slider::orthProjection;
-/*
-unsigned int Slider::VAO = 0;
-unsigned int Slider::VBO = 0;
-unsigned int Slider::EBO = 0;*/
 
 #endif
