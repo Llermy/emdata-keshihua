@@ -7,6 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "ccp4reader.h"
+#include "ComputeShaderManager.hpp"
 
 struct PosDuplet
 {
@@ -16,6 +17,7 @@ struct PosDuplet
 
 class MarchingCuber
 {
+    ComputeShaderManager csManager;
     VolumeData *data;
     //float position[3] = {0, 0, 0};
     float edgeLength;
@@ -28,6 +30,7 @@ public:
     void setup(VolumeData *data, float dataThreshold);
 
     int polygonize(float **vertices);
+    int polygonizeGPU(float **vertices);
 
     int voxelToTableIndex(int x, int y, int z);
     int tableIndexToVertices(int index, int x, int y, int z);

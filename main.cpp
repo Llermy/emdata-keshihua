@@ -57,6 +57,7 @@ unsigned int mcVAO;
 unsigned int mcVBO;
 MarchingCuber mcuber;
 glm::mat4 mcModel = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f));
+bool useGPU = true;
 
 // Scale line to know data distances
 Shader *scaleShader;
@@ -91,28 +92,35 @@ int main(int argc, char *argv[]) {
 
     // test的计算着色器
     std::cout << "计算着色器test：";
-    ComputeShaderManager csManager;
-    csManager.setup();
-    int *out;
+    /*int *out;
     csManager.dispatchTest(5, 1, 1, &out);
     for(int i = 0; i < 5; i++) {
         std::cout << out[i] << ",";
     }
-    std::cout << "\n";
+    std::cout << "\n";*/
 
     // 读密度数据文件（相关代码在ccp4reader.h）
     CCP4Reader reader;
-    if(argc > 1) {
-        densityData = reader.read(argv[1]);
+    if(argc > 2) {
+        densityData = reader.read(argv[2]);
     } else {
         densityData = reader.read("data/emd_10410_96.map");
+    }
+
+    if(argc > 1) {
+        useGPU = argv[1] == "1";
     }
 
     slider = new Slider(densityData->minValue, densityData->maxValue);
     valThreshold = slider->read();
 
     mcuber.setup(densityData, valThreshold);
-    mcVertNum = mcuber.polygonize(&mcVertices);
+    if(useGPU) {
+        mcVertNum = mcuber.polygonizeGPU(&mcVertices);
+    } else {
+        mcVertNum = mcuber.polygonize(&mcVertices);
+    }
+    
 
     // 着色器定义
     ourShader = new Shader("shaders/vertex/shader1.vs", "shaders/fragment/shader1.fs");
@@ -135,7 +143,7 @@ int main(int argc, char *argv[]) {
         processInput(window);
 
         // 背景颜色
-        glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
+        glClearColor(0.2f, 0.2f, 0.25f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // 给着色器的变量
@@ -187,7 +195,7 @@ void initOpenGL()
 #endif
 
     // 创建窗口对象
-    window = glfwCreateWindow(scrWidth, scrHeight, "LearnOpenGL", NULL, NULL);
+    window = glfwCreateWindow(scrWidth, scrHeight, "Em Data 3D Visualizer", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -298,7 +306,7 @@ void drawScale()
     scaleShader->setMat4("model", mcModel);
     glDrawArrays(GL_LINES, 0, 2);
 
-    float scaleLineLength = densityData->cellDim * densityData->size[0] / 2;
+    float scaleLineLength = densityData->cellDim * densityData->size[0] / 20;
     std::stringstream stream;
     stream << std::fixed << std::setprecision(2) << scaleLineLength;
     std::string dimStr = stream.str();
@@ -492,7 +500,11 @@ void updateValThreshold(float newThreshold)
     valThreshold = newThreshold;
     mcuber.dataThreshold = valThreshold;
     delete[] mcVertices;
-    mcVertNum = mcuber.polygonize(&mcVertices);
+    if(useGPU) {
+        mcVertNum = mcuber.polygonizeGPU(&mcVertices);
+    } else {
+        mcVertNum = mcuber.polygonize(&mcVertices);
+    }
 
     updateMCVertices(mcVertices, mcVertNum);
 }

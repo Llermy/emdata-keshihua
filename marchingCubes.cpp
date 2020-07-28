@@ -15,7 +15,7 @@ const PosDuplet cornerIndexFromEdge[12] = {
     {{0, 1, 1}, {0, 0, 1}}
 };
 
-int triTable[256][16] = {
+const int triTable[256][16] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -285,6 +285,8 @@ void MarchingCuber::setup(VolumeData *data, float dataThreshold)
     this->data = data;
     this->dataThreshold = dataThreshold;
     this->edgeLength = MC_SIZE / data->size[0];
+    this->csManager.setup();
+    this->csManager.bufferMCData(data);
 }
 
 /**
@@ -297,6 +299,10 @@ void MarchingCuber::setup(VolumeData *data, float dataThreshold)
  */
 int MarchingCuber::polygonize(float **vertices)
 {
+    clock_t startt, endt;
+    double cpu_time_used;
+    startt = clock();
+
     // 先计算每个体素的对应triTable行
     int sizex = this->data->size[0]-1;
     int sizey = this->data->size[1]-1;
@@ -319,7 +325,7 @@ int MarchingCuber::polygonize(float **vertices)
     }
 
     // 从每个triTable行计算对应的三角形及其法向量
-    *vertices = new float[totalNumVerts*6]; // 顶点数量 * 3 顶点坐标成分 + 1 法向量
+    *vertices = new float[totalNumVerts*6]; // 顶点数量 * 3 顶点坐标成分 + 3 法向量
     int currentVertexF = 0;
 
     for(int z = 0; z < sizez; z++)
@@ -365,6 +371,61 @@ int MarchingCuber::polygonize(float **vertices)
     }
 
     delete[] triTableIndices;
+
+    endt = clock();
+    cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
+    std::cout << "Marching Cubes结束了：" << cpu_time_used << "秒\n\n";
+    return totalNumVerts;
+}
+
+int MarchingCuber::polygonizeGPU(float **vertices)
+{
+    clock_t startt, endt;
+    double cpu_time_used;
+    startt = clock();
+
+    // 先计算每个体素的对应triTable行
+    int sizex = this->data->size[0]-1;
+    int sizey = this->data->size[1]-1;
+    int sizez = this->data->size[2]-1;
+    int indNumber = sizex * sizey * sizez;
+    int *triTableIndices = new int[indNumber];
+    int *vertsSumIndices = new int[indNumber+1];
+    vertsSumIndices[0] = 0;
+
+    for(int z = 0; z < sizez; z++)
+    {
+        for(int y = 0; y < sizey; y++)
+        {
+            for(int x = 0; x < sizex; x++)
+            {
+                int arrayInd = x + y*sizex + z*sizex*sizey;
+                int tableIndex = this->voxelToTableIndex(x, y, z);
+                triTableIndices[arrayInd] = tableIndex;
+                vertsSumIndices[arrayInd+1] = vertsSumIndices[arrayInd] + this->tableIndexVertNum(tableIndex);
+                if(vertsSumIndices[arrayInd+1] - vertsSumIndices[arrayInd] > 12) {
+                    int asdq = 0;
+                }
+            }
+        }
+    }
+    this->csManager.dispatchMC(
+        vertices,
+        this->data,
+        this->dataThreshold,
+        this->edgeLength,
+        triTableIndices,
+        vertsSumIndices
+    );
+
+    int totalNumVerts = vertsSumIndices[indNumber];
+    delete[] triTableIndices;
+    delete[] vertsSumIndices;
+
+    endt = clock();
+    cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
+    std::cout << "Marching Cubes结束了：" << cpu_time_used << "秒\n\n";
+    
     return totalNumVerts;
 }
 
@@ -429,7 +490,7 @@ glm::vec3 MarchingCuber::interpolateEdge(int edgeIndex, int x, int y, int z)
 int MarchingCuber::tableIndexVertNum(int index)
 {
     int num;
-    for(num = 0; num < 16; num++) {
+    for(num = 0; num < 15; num += 3) {
         if(triTable[index][num] < 0) {
             break;
         }
