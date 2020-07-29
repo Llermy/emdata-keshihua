@@ -323,6 +323,9 @@ int MarchingCuber::polygonize(float **vertices)
             }
         }
     }
+    endt = clock();
+    cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
+    std::cout << "三角形表的索引计算结束了：" << cpu_time_used << "秒\n\n";
 
     // 从每个triTable行计算对应的三角形及其法向量
     *vertices = new float[totalNumVerts*6]; // 顶点数量 * 3 顶点坐标成分 + 3 法向量
@@ -378,6 +381,86 @@ int MarchingCuber::polygonize(float **vertices)
     return totalNumVerts;
 }
 
+int MarchingCuber::polygonizeGPU2(float **vertices)
+{
+    clock_t startt, endt;
+    double cpu_time_used;
+    startt = clock();
+
+    int sizex = this->data->size[0]-1;
+    int sizey = this->data->size[1]-1;
+    int sizez = this->data->size[2]-1;
+
+    // 计算出每格对应的triTable索引
+    int *triTableIndices;
+    this->csManager.dispatchMC2(this->data, &triTableIndices, this->dataThreshold);
+    
+    endt = clock();
+    cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
+    std::cout << "三角形表的索引计算结束了：" << cpu_time_used << "秒\n\n";
+
+    // 计算顶点数量
+    int indNumber = sizex * sizey * sizez;
+    int totalNumVerts = 0;
+    for(int i = 0; i < indNumber; i++) {
+        totalNumVerts += tableIndexVertNum(triTableIndices[i]);
+    }
+    *vertices = new float[totalNumVerts*6]; // 顶点数量 * 3 顶点坐标成分 + 3 法向量
+    
+    // 从每个triTable格计算对应的三角形及其法向量
+    int currentVertexF = 0;
+    for(int z = 0; z < sizez; z++)
+    {
+        for(int y = 0; y < sizey; y++)
+        {
+            for(int x = 0; x < sizex; x++)
+            {
+                int arrayInd = x + y*sizex + z*sizex*sizey;
+                
+                for(int i = 0; i < 16; i += 3) {
+                    if(triTable[triTableIndices[arrayInd]][i] < 0) {
+                        break;
+                    } else {
+                        // 计算出这个三角形的三个顶点及其对应法向量
+                        glm::vec3 points[3];
+                        for(int j = 0; j < 3; j++) {
+                            points[j] = interpolateEdge(
+                                triTable[triTableIndices[arrayInd]][j+i], // edge index
+                                x, y, z
+                            );
+                        }
+
+                        glm::vec3 normal = glm::normalize(
+                            glm::cross(
+                                points[1] - points[0],
+                                points[2] - points[0]
+                        ));
+
+                        // 把顶点存到vertices数组
+                        for(int j = 0; j < 3; j++) {
+                            (*vertices)[currentVertexF] = points[j].x;
+                            (*vertices)[currentVertexF+1] = points[j].y;
+                            (*vertices)[currentVertexF+2] = points[j].z;
+                            currentVertexF += 3;
+
+                            (*vertices)[currentVertexF] = normal.x;
+                            (*vertices)[currentVertexF+1] = normal.y;
+                            (*vertices)[currentVertexF+2] = normal.z;
+                            currentVertexF += 3;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    endt = clock();
+    cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
+    std::cout << "GPU Marching Cubes结束了：" << cpu_time_used << "秒\n\n";
+    
+    return totalNumVerts;
+}
+
 int MarchingCuber::polygonizeGPU(float **vertices)
 {
     clock_t startt, endt;
@@ -403,12 +486,12 @@ int MarchingCuber::polygonizeGPU(float **vertices)
                 int tableIndex = this->voxelToTableIndex(x, y, z);
                 triTableIndices[arrayInd] = tableIndex;
                 vertsSumIndices[arrayInd+1] = vertsSumIndices[arrayInd] + this->tableIndexVertNum(tableIndex);
-                if(vertsSumIndices[arrayInd+1] - vertsSumIndices[arrayInd] > 12) {
-                    int asdq = 0;
-                }
             }
         }
     }
+    endt = clock();
+    cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
+    std::cout << "CPU部分结束了：" << cpu_time_used << "秒\n\n";
     this->csManager.dispatchMC(
         vertices,
         this->data,

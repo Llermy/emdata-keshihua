@@ -53,7 +53,7 @@ public:
 
     /****** 计算着色器的自制调用 ******/
     void dispatchTest(int x, int y, int z, int **dataptr);
-    //void dispatchMC(float **dataptr, VolumeData *data, float threshold);
+    void dispatchMC2(VolumeData *data, int **triTableIndices, float threshold);
     void dispatchMC(float **vertices, VolumeData *data, float threshold, float edgeLength, int *triTableIndices, int *vertsSumIndices);
 };
 

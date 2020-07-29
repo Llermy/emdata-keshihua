@@ -364,10 +364,10 @@ void ComputeShaderManager::bufferMCData(VolumeData *data)
 {
     int dataSize = data->size[0]*data->size[1]*data->size[2];
     this->bufferData(volDataSsbo, data->data, sizeof(data->data[0])*dataSize);
-    int voxelSize = (data->size[0]-1) * (data->size[1]-1) * (data->size[2]-1);
+    /*int voxelSize = (data->size[0]-1) * (data->size[1]-1) * (data->size[2]-1);
     float *vertices = new float[voxelSize * 15 * 6];
     bufferData(verticesSsbo, vertices, sizeof(float)*voxelSize * 15 * 6);
-    delete vertices;
+    delete vertices;*/
 }
 
 void ComputeShaderManager::dispatchTest(int x, int y, int z, int **dataptr)
@@ -390,14 +390,12 @@ int tableIndexVertNum(int index)
     return num;
 }
 
-/*void ComputeShaderManager::dispatchMC(float **dataptr, VolumeData *data, float threshold)
+void ComputeShaderManager::dispatchMC2(
+    VolumeData *data,
+    int **triTableIndices,
+    float threshold)
 {
     glUseProgram(mcPH);
-
-    int sizex = data->size[0];
-    int sizey = data->size[1];
-    int sizez = data->size[2];
-    int sizetot = sizex*sizey*sizez;
 
     // 加入我们的体数据
     McParam param = {
@@ -409,34 +407,18 @@ int tableIndexVertNum(int index)
             data->size[2]
         }
     };
-    bufferData(volDataSsbo, data->data, sizeof(data->data[0])*sizetot);
     bufferData(mcParamSsbo, &param, sizeof(McParam));
 
-    // 初始化triTableIndices数组
-    int indNumber = (sizex-1) * (sizey-1) * (sizez-1);
-    int *triTableIndices = new int[indNumber];
-    bufferData(triIndSsbo, triTableIndices, sizeof(triTableIndices[0])*indNumber);
-    delete triTableIndices;
-    
-    glDispatchCompute(sizex-1, sizey-1, sizez-1);
+    // 计算出每格对应的triTable索引
+    int indNumber = (data->size[0]-1) * (data->size[1]-1) * (data->size[2]-1);
+    *triTableIndices = new int[indNumber];
+    bufferData(triIndSsbo, *triTableIndices, sizeof(*triTableIndices[0])*indNumber);
+    glDispatchCompute(data->size[0]-1, data->size[1]-1, data->size[2]-1);
+
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, triIndSsbo);
-    triTableIndices = (int *) glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volDataSsbo);
-    float *dat = (float *) glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-
-    int totalNumVerts = 0;
-    for(int i = 0; i < indNumber; i++) {
-        totalNumVerts += tableIndexVertNum(triTableIndices[i]);
-    }
-
-    float *vertices = new float[totalNumVerts*6];
-
-
-
-
-
+    *triTableIndices = (int *) glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-}*/
+}
 
 void ComputeShaderManager::dispatchMC(
     float **vertices,
@@ -474,7 +456,7 @@ void ComputeShaderManager::dispatchMC(
     
     int totalNumVerts = vertsSumIndices[sizetot];
     *vertices = new float[totalNumVerts*6];
-    //bufferData(verticesSsbo, *vertices, sizeof(*vertices[0])*totalNumVerts*6);
+    bufferData(verticesSsbo, *vertices, sizeof(*vertices[0])*totalNumVerts*6);
     endt = clock();
     cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
     std::cout << "加入数据结束了：" << cpu_time_used << "秒\n\n";
@@ -487,11 +469,12 @@ void ComputeShaderManager::dispatchMC(
 
     startt = clock();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, verticesSsbo);
-    glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float)*totalNumVerts*6, *vertices);
+    *vertices = (float *) glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    //glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float)*totalNumVerts*6, *vertices);
     endt = clock();
     cpu_time_used = ((double) (endt - startt)) / CLOCKS_PER_SEC;
     std::cout << "拿回输出结果结束了：" << cpu_time_used << "秒\n\n";
 
-    //*vertices = (float *) glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-    //glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    
 }

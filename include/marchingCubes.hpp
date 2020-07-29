@@ -31,6 +31,7 @@ public:
 
     int polygonize(float **vertices);
     int polygonizeGPU(float **vertices);
+    int polygonizeGPU2(float **vertices);
 
     int voxelToTableIndex(int x, int y, int z);
     int tableIndexToVertices(int index, int x, int y, int z);

@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     }
 
     if(argc > 1) {
-        useGPU = argv[1] == "1";
+        useGPU = argv[1][0] == '1';
     }
 
     slider = new Slider(densityData->minValue, densityData->maxValue);
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 
     mcuber.setup(densityData, valThreshold);
     if(useGPU) {
-        mcVertNum = mcuber.polygonizeGPU(&mcVertices);
+        mcVertNum = mcuber.polygonizeGPU2(&mcVertices);
     } else {
         mcVertNum = mcuber.polygonize(&mcVertices);
     }
@@ -501,7 +501,7 @@ void updateValThreshold(float newThreshold)
     mcuber.dataThreshold = valThreshold;
     delete[] mcVertices;
     if(useGPU) {
-        mcVertNum = mcuber.polygonizeGPU(&mcVertices);
+        mcVertNum = mcuber.polygonizeGPU2(&mcVertices);
     } else {
         mcVertNum = mcuber.polygonize(&mcVertices);
     }
